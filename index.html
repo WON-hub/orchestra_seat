@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>관현악부 연명부 관리</title>
+  <style>
+    :root{
+      --bg:#f5f3ef;--panel:#fff;--text:#1f2933;--muted:#718096;--line:#e5e1d8;
+      --accent:#6f1d32;--accent-dark:#4d1222;--accent-soft:#f5e9ed;--danger:#b42318;
+      --shadow:0 12px 30px rgba(35,27,24,.08);--radius:18px
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Pretendard,"Noto Sans KR",Arial,sans-serif;background:var(--bg);color:var(--text)}
+    button,input,select,textarea{font:inherit}button{border:0;cursor:pointer}
+    button:disabled{cursor:not-allowed;opacity:.5}
+    .app-header{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:20px 28px;color:#fff;background:rgba(45,13,23,.96);box-shadow:0 8px 25px rgba(0,0,0,.16)}
+    h1{margin:0;font-size:clamp(21px,3vw,30px)}.subtitle{margin:5px 0 0;color:rgba(255,255,255,.72);font-size:13px}
+    .status{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.1);font-size:12px}
+    .dot{width:8px;height:8px;border-radius:50%;background:#f59e0b}.status.ok .dot{background:#22c55e}.status.error .dot{background:#ef4444}
+    main{width:min(1300px,calc(100% - 32px));margin:30px auto 80px}
+    .tabs{display:flex;gap:8px;width:max-content;margin-bottom:22px;padding:6px;border:1px solid var(--line);border-radius:14px;background:#fff}
+    .tab{padding:10px 18px;border-radius:10px;background:transparent;color:var(--muted);font-weight:800}.tab.active{background:var(--accent);color:#fff}
+    [hidden]{display:none!important}
+    .toolbar,.seating-toolbar{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:20px}
+    .toolbar h2,.seating-toolbar h2{margin:0;font-size:20px}.toolbar p,.seating-toolbar p{margin:6px 0 0;color:var(--muted);font-size:13px}
+    .actions{display:flex;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+    .btn{padding:11px 15px;border-radius:12px;font-weight:800}.primary{color:#fff;background:var(--accent)}.primary:hover{background:var(--accent-dark)}
+    .secondary{color:var(--accent);background:var(--accent-soft)}.excel{color:#28414c;background:#e6eef1}.danger{color:var(--danger);background:#fff0ee}
+    .notice{display:none;margin-bottom:18px;padding:13px 15px;border:1px solid #d7dfe2;border-radius:13px;background:#fff;color:#536670;font-size:13px}.notice.show{display:block}.notice.error{color:var(--danger);border-color:#efc2bd;background:#fff4f2}
+    details{margin-bottom:20px;padding:16px 18px;border:1px solid #d7dfe2;border-radius:15px;background:#f8fbfc}summary{cursor:pointer;font-weight:800}
+    .help{margin-top:12px;color:#536670;font-size:13px;line-height:1.65}
+    .category-list{display:grid;gap:20px}.category{overflow:hidden;border:1px solid var(--line);border-radius:var(--radius);background:#fff;box-shadow:var(--shadow)}
+    .category-head{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:18px 20px;border-bottom:1px solid var(--line);background:linear-gradient(90deg,#fff,#fbf7f8)}
+    .category-name{display:flex;align-items:center;gap:11px;font-size:18px;font-weight:800}.icon{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;color:#fff;background:var(--accent)}
+    .instrument-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(285px,1fr));gap:16px;padding:18px}
+    .instrument{overflow:hidden;border:1px solid var(--line);border-radius:15px}.instrument-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:15px;background:#faf9f7;border-bottom:1px solid var(--line)}
+    .instrument-title{padding:0;background:transparent;text-align:left;font-weight:800;font-size:16px}.instrument-title small{display:block;margin-top:4px;color:var(--muted);font-size:11px;font-weight:500}
+    .icon-btn{width:30px;height:30px;border-radius:8px;background:#f2f1ee}.icon-btn.delete{color:var(--danger);background:#fff1ef}
+    .member-list{display:grid;gap:10px;padding:13px}.part{overflow:hidden;border:1px solid #ece8e1;border-radius:12px}.part-head{display:flex;justify-content:space-between;padding:9px 11px;background:var(--accent-soft);color:var(--accent-dark);font-size:12px;font-weight:800}
+    .member{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 11px;border-top:1px solid #f0ede8}.member-name{font-weight:700}.member-note{margin-top:3px;color:var(--muted);font-size:11px}
+    .row-actions{display:flex;gap:5px}.empty{padding:24px;border:1px dashed #d7d1c8;border-radius:14px;color:var(--muted);text-align:center;background:#fcfbf9}
+    .modal-backdrop{position:fixed;inset:0;z-index:100;display:none;place-items:center;padding:18px;background:rgba(18,14,15,.58)}.modal-backdrop.open{display:grid}
+    .modal{width:min(470px,100%);max-height:90vh;overflow:auto;border-radius:20px;background:#fff;box-shadow:0 30px 80px rgba(0,0,0,.28)}
+    .modal-head{display:flex;justify-content:space-between;align-items:center;padding:19px 20px;border-bottom:1px solid var(--line)}.modal-head h3{margin:0}.close{width:34px;height:34px;border-radius:50%;background:#f0eeea;font-size:20px}
+    .form-body{display:grid;gap:15px;padding:20px}.field{display:grid;gap:7px}.field label{font-size:13px;font-weight:800}.field input,.field select,.field textarea{width:100%;padding:12px 13px;border:1px solid #d8d3cb;border-radius:11px;outline:none}.field textarea{min-height:90px;resize:vertical}
+    .modal-actions{display:flex;justify-content:flex-end;gap:10px;padding:0 20px 20px}
+    .seating-tools{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}.summary{display:flex;gap:8px;flex-wrap:wrap}.chip{padding:8px 11px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--muted);font-size:12px;font-weight:700}
+    .zoom-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+    .zoom-btn{display:grid;place-items:center;min-width:42px;height:40px;padding:0 12px;border:1px solid var(--line);border-radius:11px;background:#fff;color:#28414c;font-weight:900}
+    .zoom-btn:hover{background:#f5f8f9}
+    .zoom-value{min-width:68px;padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:#fff;color:#536670;text-align:center;font-size:12px;font-weight:800}
+    .zoom-help{margin-left:auto;color:var(--muted);font-size:12px}
+    .seating-scroll{position:relative;height:min(70vh,760px);min-height:420px;overflow:auto;overscroll-behavior:contain;border:1px solid var(--line);border-radius:18px;background:#dfe7ea;box-shadow:var(--shadow);touch-action:none;cursor:grab}
+    .seating-scroll.panning{cursor:grabbing}
+    .board-stage{position:relative;width:1200px;height:760px;transform-origin:0 0}
+    .board{position:relative;width:1200px;height:760px;overflow:hidden;user-select:none;background:linear-gradient(rgba(255,255,255,.84),rgba(255,255,255,.84)),repeating-linear-gradient(0deg,transparent 0 39px,rgba(36,80,99,.08) 40px),repeating-linear-gradient(90deg,transparent 0 39px,rgba(36,80,99,.08) 40px)}
+    .stage-tier{position:absolute;left:50%;z-index:1;transform:translateX(-50%);border:2px solid rgba(38,63,74,.24);border-bottom:0;border-radius:50% 50% 0 0;background:transparent;pointer-events:none}
+    .tier-back{top:150px;width:1080px;height:235px}
+    .tier-middle{top:235px;width:880px;height:195px}
+    .tier-front{top:320px;width:650px;height:150px}
+    .tier-line{position:absolute;left:50%;z-index:1;transform:translateX(-50%);height:1px;background:repeating-linear-gradient(90deg,rgba(38,63,74,.22) 0 14px,transparent 14px 22px);pointer-events:none}
+    .tier-line.one{top:435px;width:930px}.tier-line.two{top:500px;width:720px}
+    .conductor{position:absolute;left:50%;bottom:26px;z-index:2;transform:translateX(-50%);display:grid;place-items:center;width:92px;height:48px;border:2px solid #263f4a;background:#b9d1dc;font-size:12px;font-weight:900}
+    .seat{position:absolute;z-index:3;display:grid;place-items:center;width:70px;min-height:38px;padding:5px;border:1.5px solid #263f4a;border-radius:3px;box-shadow:0 3px 7px rgba(30,41,47,.13);cursor:grab;text-align:center;transform-origin:center}
+    .seat.dragging{z-index:10;cursor:grabbing}.seat .inst{font-size:7px;font-weight:900}.seat .person{font-size:9px;font-weight:800}.seat .part-name{font-size:7px;opacity:.72}
+    .rotate{position:absolute;top:-10px;right:-10px;width:20px;height:20px;border:1px solid #263f4a;border-radius:50%;background:#fff;font-size:12px;line-height:1;touch-action:none}
+    .legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.legend-item{position:relative;display:flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid var(--line);border-radius:999px;background:#fff;font-size:12px;font-weight:700;cursor:pointer;transition:.15s;overflow:hidden}.legend-item:hover{transform:translateY(-1px);border-color:#9a8f86;box-shadow:0 4px 10px rgba(35,27,24,.08)}.swatch{width:15px;height:15px;border:1px solid #263f4a;border-radius:3px;pointer-events:none}.legend-name{pointer-events:none}.legend-color-input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0}
+    .toast{position:fixed;right:20px;bottom:20px;z-index:200;max-width:360px;padding:13px 16px;border-radius:12px;color:#fff;background:#25211f;box-shadow:0 16px 40px rgba(0,0,0,.2);opacity:0;transform:translateY(12px);pointer-events:none;transition:.2s}.toast.show{opacity:1;transform:none}
+    @media(max-width:680px){.app-header{padding:18px}.status span:last-child{display:none}main{width:calc(100% - 20px)}.toolbar,.seating-toolbar,.category-head{flex-direction:column}.actions,.seating-tools{width:100%}.actions button{flex:1}.seating-tools .summary{flex:1}.tabs{width:100%}.tab{flex:1}.instrument-grid{grid-template-columns:1fr;padding:12px}.zoom-help{width:100%;margin-left:0}.seating-scroll{height:62vh;min-height:380px}}
+  </style>
+</head>
+<body>
+<header class="app-header">
+  <div><h1 id="pageTitle">관현악부 연명부 관리</h1><p id="pageSubtitle" class="subtitle">분류별 악기와 파트별 단원 정보를 관리합니다.</p></div>
+  <div id="firebaseStatus" class="status"><span class="dot"></span><span>Firebase 연결 확인 중</span></div>
+</header>
+
+<main>
+  <nav class="tabs">
+    <button class="tab active" data-page="roster">연명부 관리</button>
+    <button class="tab" data-page="seating">자리배치</button>
+  </nav>
+
+  <section id="rosterPage">
+    <div class="toolbar">
+      <div><h2>악기군 및 연명부</h2><p>분류를 만들고 악기와 단원을 등록합니다.</p></div>
+      <div class="actions">
+        <button id="templateBtn" class="btn excel">엑셀 양식</button>
+        <button id="importBtn" class="btn excel">엑셀 불러오기</button>
+        <button id="addCategoryBtn" class="btn primary">＋ 분류 추가</button>
+        <input id="excelInput" type="file" accept=".xlsx,.xls" hidden>
+      </div>
+    </div>
+    <details>
+      <summary>엑셀 업로드 형식</summary>
+      <div class="help">첫 행에 <b>분류, 악기, 파트, 이름</b> 열이 필요합니다. <b>비고</b>는 선택입니다. 분류는 현악기, 목관, 금관, 타악기, 기타 중 하나를 사용하세요.</div>
+    </details>
+    <div id="notice" class="notice"></div>
+    <div id="categoryList" class="category-list"></div>
+  </section>
+
+  <section id="seatingPage" hidden>
+    <div class="seating-toolbar">
+      <div><h2>자리배치</h2><p>카드를 드래그해 이동하고 오른쪽 위 버튼으로 회전합니다.</p></div>
+      <div class="seating-tools">
+        <div class="summary"><span id="memberCount" class="chip">단원 0명</span><span id="instrumentCount" class="chip">악기 0종</span></div>
+        <button id="printBtn" class="btn primary" type="button" aria-label="자리배치표 이미지 공유">Get</button>
+      </div>
+    </div>
+    <div class="zoom-toolbar" aria-label="자리배치 확대 및 축소">
+      <button id="zoomOutBtn" class="zoom-btn" type="button" aria-label="축소">−</button>
+      <span id="zoomValue" class="zoom-value">100%</span>
+      <button id="zoomInBtn" class="zoom-btn" type="button" aria-label="확대">＋</button>
+      <button id="fitBoardBtn" class="zoom-btn" type="button">화면 맞춤</button>
+      <button id="resetViewBtn" class="zoom-btn" type="button">100%</button>
+      <span class="zoom-help">빈 공간을 드래그해 이동 · 두 손가락으로 확대/축소</span>
+    </div>
+    <div id="seatingViewport" class="seating-scroll">
+      <div id="boardStage" class="board-stage">
+        <div id="board" class="board">
+          <div class="stage-tier tier-back"></div>
+          <div class="stage-tier tier-middle"></div>
+          <div class="stage-tier tier-front"></div>
+          <div class="tier-line one"></div>
+          <div class="tier-line two"></div>
+          <div class="conductor">지휘자</div>
+          <div id="seatEmpty" class="empty" style="position:absolute;inset:20px;height:max-content;z-index:4">등록된 단원이 없습니다.</div>
+        </div>
+      </div>
+    </div>
+    <div id="legend" class="legend"></div>
+  </section>
+</main>
+
+<div id="categoryModal" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-head"><h3>분류 추가</h3><button class="close" data-close="categoryModal">×</button></div>
+    <form id="categoryForm"><div class="form-body"><div class="field"><label>분류</label><select id="categorySelect" required></select></div></div><div class="modal-actions"><button type="button" class="btn secondary" data-close="categoryModal">취소</button><button class="btn primary">추가</button></div></form>
+  </div>
+</div>
+
+<div id="instrumentModal" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-head"><h3>악기 추가</h3><button class="close" data-close="instrumentModal">×</button></div>
+    <form id="instrumentForm"><div class="form-body"><input id="instrumentCategory" type="hidden"><div class="field"><label>분류</label><input id="instrumentCategoryLabel" disabled></div><div class="field"><label>악기 이름</label><input id="instrumentName" required maxlength="30" placeholder="예: 바이올린"></div></div><div class="modal-actions"><button type="button" class="btn secondary" data-close="instrumentModal">취소</button><button class="btn primary">추가</button></div></form>
+  </div>
+</div>
+
+<div id="memberModal" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-head"><h3 id="memberModalTitle">단원 추가</h3><button class="close" data-close="memberModal">×</button></div>
+    <form id="memberForm"><div class="form-body">
+      <input id="memberId" type="hidden"><input id="memberInstrumentId" type="hidden">
+      <div class="field"><label>악기</label><input id="memberInstrumentLabel" disabled></div>
+      <div class="field"><label>파트</label><input id="memberPart" required maxlength="30" placeholder="예: 1st"></div>
+      <div class="field"><label>이름</label><input id="memberName" required maxlength="30"></div>
+      <div class="field"><label>비고</label><textarea id="memberNote" maxlength="200"></textarea></div>
+    </div><div class="modal-actions"><button type="button" class="btn secondary" data-close="memberModal">취소</button><button class="btn primary">저장</button></div></form>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- module이 아닌 compat SDK라서 HTML 파일을 더블클릭해도 실행 가능 -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+<script>
+(() => {
+  "use strict";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyB_13DBhlALcBR7tSd3xQg6xXChLq7-r7E",
+    authDomain: "myarrange-35e45.firebaseapp.com",
+    projectId: "myarrange-35e45",
+    storageBucket: "myarrange-35e45.firebasestorage.app",
+    messagingSenderId: "427104022619",
+    appId: "1:427104022619:web:976e971d441708cc3dcf7e"
+  };
+
+  const CATEGORIES = ["현악기","목관","금관","타악기","기타"];
+  const ICONS = {"현악기":"S","목관":"W","금관":"B","타악기":"P","기타":"＋"};
+  const $ = id => document.getElementById(id);
+
+  let db = null;
+  let categories = [];
+  let instruments = [];
+  let members = [];
+  let positions = {};
+  let instrumentColors = {};
+  let drag = null;
+  let toastTimer = null;
+
+  const BOARD_WIDTH = 1200;
+  const BOARD_HEIGHT = 760;
+  const MIN_ZOOM = 0.28;
+  const MAX_ZOOM = 2.2;
+  let boardZoom = 1;
+  let viewGesture = null;
+  const activeViewPointers = new Map();
+
+  function escapeHtml(value){
+    return String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[ch]));
+  }
+  function toast(message){
+    const el = $("toast"); el.textContent = message; el.classList.add("show");
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), 2800);
+  }
+  function setStatus(text,type=""){
+    $("firebaseStatus").className = "status " + type;
+    $("firebaseStatus").innerHTML = '<span class="dot"></span><span>'+escapeHtml(text)+'</span>';
+  }
+  function showNotice(message,error=false){
+    const el=$("notice"); el.textContent=message; el.className="notice show"+(error?" error":"");
+  }
+  function hideNotice(){ $("notice").className="notice"; $("notice").textContent=""; }
+  function openModal(id){ $(id).classList.add("open"); }
+  function closeModal(id){ $(id).classList.remove("open"); }
+  function serverTime(){ return firebase.firestore.FieldValue.serverTimestamp(); }
+
+  try{
+    if(!window.firebase) throw new Error("Firebase SDK를 불러오지 못했습니다.");
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    startListeners();
+  }catch(error){
+    console.error(error);
+    setStatus("Firebase 초기화 실패","error");
+    showNotice("초기화 실패: "+error.message,true);
+    render();
+  }
+
+  function startListeners(){
+    db.collection("roster_categories").onSnapshot(snapshot=>{
+      categories = snapshot.docs.map(d=>({id:d.id,...d.data()}))
+        .filter(x=>CATEGORIES.includes(x.name))
+        .sort((a,b)=>(a.order??99)-(b.order??99));
+      render(); setStatus("Firestore 연결됨","ok");
+    }, firestoreError);
+
+    db.collection("roster_instruments").onSnapshot(snapshot=>{
+      instruments = snapshot.docs.map(d=>({id:d.id,...d.data()}))
+        .sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"ko"));
+      render(); setStatus("Firestore 연결됨","ok");
+    }, firestoreError);
+
+    db.collection("roster_members").onSnapshot(snapshot=>{
+      members = snapshot.docs.map(d=>({id:d.id,...d.data()}))
+        .sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"ko"));
+      render(); setStatus("Firestore 연결됨","ok");
+    }, firestoreError);
+
+    db.collection("seating_positions").onSnapshot(snapshot=>{
+      positions = Object.fromEntries(snapshot.docs.map(d=>[d.id,d.data()]));
+      renderSeating();
+    }, firestoreError);
+
+    db.collection("seating_instrument_colors").onSnapshot(snapshot=>{
+      instrumentColors = Object.fromEntries(snapshot.docs.map(d=>[d.id,d.data().color]).filter(([,color])=>color));
+      renderSeating();
+    }, firestoreError);
+  }
+
+  function firestoreError(error){
+    console.error("Firestore 오류:",error);
+    const code=error.code||"unknown";
+    setStatus("Firestore 오류: "+code,"error");
+    showNotice("Firestore 연결 실패: "+code+" · Firebase 콘솔의 Firestore 생성 여부와 보안 규칙을 확인하세요.",true);
+  }
+
+  function render(){
+    refreshCategorySelect();
+    if(!categories.length){
+      $("categoryList").innerHTML='<div class="empty">생성된 분류가 없습니다. 상단의 분류 추가 버튼을 누르세요.</div>';
+    }else{
+      $("categoryList").innerHTML=categories.map(c=>renderCategory(c.name)).join("");
+    }
+    renderSeating();
+  }
+
+  function refreshCategorySelect(){
+    const available=CATEGORIES.filter(name=>!categories.some(c=>c.name===name));
+    $("categorySelect").innerHTML='<option value="">분류를 선택하세요</option>'+available.map(x=>'<option>'+escapeHtml(x)+'</option>').join("");
+    $("addCategoryBtn").disabled=!available.length;
+  }
+
+  function renderCategory(category){
+    const list=instruments.filter(x=>x.category===category);
+    return `<article class="category">
+      <div class="category-head"><div class="category-name"><span class="icon">${ICONS[category]}</span>${escapeHtml(category)}</div>
+      <button class="btn secondary" data-action="add-instrument" data-category="${escapeHtml(category)}">＋ 악기 추가</button></div>
+      <div class="instrument-grid">${list.length?list.map(renderInstrument).join(""):'<div class="empty">등록된 악기가 없습니다.</div>'}</div>
+    </article>`;
+  }
+
+  function renderInstrument(inst){
+    const list=members.filter(x=>x.instrumentId===inst.id);
+    const grouped={};
+    list.forEach(m=>{const p=(m.part||"미분류").trim();(grouped[p]??=[]).push(m)});
+    return `<section class="instrument">
+      <div class="instrument-head">
+        <button class="instrument-title" data-action="add-member" data-id="${inst.id}">${escapeHtml(inst.name)}<small>눌러서 단원 추가 · ${list.length}명</small></button>
+        <button class="icon-btn delete" data-action="delete-instrument" data-id="${inst.id}">×</button>
+      </div>
+      <div class="member-list">${list.length?Object.keys(grouped).sort((a,b)=>a.localeCompare(b,"ko")).map(part=>`
+        <div class="part"><div class="part-head"><span>${escapeHtml(part)}</span><span>${grouped[part].length}명</span></div>
+        ${grouped[part].map(renderMember).join("")}</div>`).join(""):'<div class="empty">악기 이름을 눌러 단원을 추가하세요.</div>'}</div>
+    </section>`;
+  }
+
+  function renderMember(m){
+    return `<div class="member"><div><div class="member-name">${escapeHtml(m.name)}</div>${m.note?`<div class="member-note">${escapeHtml(m.note)}</div>`:""}</div>
+      <div class="row-actions"><button class="icon-btn" data-action="edit-member" data-id="${m.id}">✎</button><button class="icon-btn delete" data-action="delete-member" data-id="${m.id}">×</button></div></div>`;
+  }
+
+  $("addCategoryBtn").onclick=()=>openModal("categoryModal");
+  $("categoryForm").onsubmit=async e=>{
+    e.preventDefault(); const name=$("categorySelect").value; if(!name)return;
+    try{
+      await db.collection("roster_categories").add({name,order:CATEGORIES.indexOf(name),createdAt:serverTime()});
+      e.target.reset(); closeModal("categoryModal"); toast(name+" 분류를 추가했습니다.");
+    }catch(err){console.error(err);toast("분류 추가 실패: "+(err.code||err.message));}
+  };
+
+  $("instrumentForm").onsubmit=async e=>{
+    e.preventDefault();
+    const category=$("instrumentCategory").value, name=$("instrumentName").value.trim();
+    if(instruments.some(x=>x.category===category&&String(x.name).trim().toLowerCase()===name.toLowerCase())) return toast("같은 악기가 이미 있습니다.");
+    try{
+      await db.collection("roster_instruments").add({category,name,createdAt:serverTime()});
+      e.target.reset();closeModal("instrumentModal");toast(name+" 악기를 추가했습니다.");
+    }catch(err){console.error(err);toast("악기 추가 실패: "+(err.code||err.message));}
+  };
+
+  $("memberForm").onsubmit=async e=>{
+    e.preventDefault();
+    const id=$("memberId").value, instrumentId=$("memberInstrumentId").value;
+    const inst=instruments.find(x=>x.id===instrumentId);
+    if(!inst)return toast("악기 정보를 찾을 수 없습니다.");
+    const data={category:inst.category,instrumentId,instrumentName:inst.name,part:$("memberPart").value.trim(),name:$("memberName").value.trim(),note:$("memberNote").value.trim(),updatedAt:serverTime()};
+    try{
+      if(id) await db.collection("roster_members").doc(id).update(data);
+      else await db.collection("roster_members").add({...data,createdAt:serverTime()});
+      e.target.reset();closeModal("memberModal");toast(id?"단원 정보를 수정했습니다.":"단원을 추가했습니다.");
+    }catch(err){console.error(err);toast("단원 저장 실패: "+(err.code||err.message));}
+  };
+
+  $("categoryList").onclick=async e=>{
+    const b=e.target.closest("[data-action]");if(!b)return;
+    const action=b.dataset.action,id=b.dataset.id;
+    if(action==="add-instrument"){
+      $("instrumentCategory").value=b.dataset.category;$("instrumentCategoryLabel").value=b.dataset.category;$("instrumentName").value="";openModal("instrumentModal");
+    }
+    if(action==="add-member") openMember(id);
+    if(action==="edit-member"){const m=members.find(x=>x.id===id);if(m)openMember(m.instrumentId,m)}
+    if(action==="delete-member"){
+      const m=members.find(x=>x.id===id);if(!m||!confirm(m.name+" 단원을 삭제하시겠습니까?"))return;
+      try{
+        const batch=db.batch();
+        batch.delete(db.collection("roster_members").doc(id));
+        batch.delete(db.collection("seating_positions").doc(id));
+        await batch.commit();toast("단원을 삭제했습니다.");
+      }catch(err){console.error(err);toast("단원 삭제 실패");}
+    }
+    if(action==="delete-instrument"){
+      const inst=instruments.find(x=>x.id===id);if(!inst)return;
+      if(members.some(x=>x.instrumentId===id))return toast("등록된 단원을 먼저 삭제하세요.");
+      if(!confirm(inst.name+" 악기를 삭제하시겠습니까?"))return;
+      try{await db.collection("roster_instruments").doc(id).delete();toast("악기를 삭제했습니다.");}catch(err){console.error(err);toast("악기 삭제 실패");}
+    }
+  };
+
+  function openMember(instrumentId,m=null){
+    const inst=instruments.find(x=>x.id===instrumentId);if(!inst)return;
+    $("memberModalTitle").textContent=m?"단원 정보 수정":"단원 추가";
+    $("memberId").value=m?.id||"";$("memberInstrumentId").value=instrumentId;
+    $("memberInstrumentLabel").value=inst.category+" · "+inst.name;
+    $("memberPart").value=m?.part||"";$("memberName").value=m?.name||"";$("memberNote").value=m?.note||"";
+    openModal("memberModal");
+  }
+
+  document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>closeModal(b.dataset.close));
+  document.querySelectorAll(".modal-backdrop").forEach(m=>m.onclick=e=>{if(e.target===m)closeModal(m.id)});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape")document.querySelectorAll(".modal-backdrop.open").forEach(m=>closeModal(m.id))});
+
+  document.querySelectorAll(".tab").forEach(tab=>tab.onclick=()=>{
+    document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===tab));
+    const seating=tab.dataset.page==="seating";
+    $("rosterPage").hidden=seating;$("seatingPage").hidden=!seating;
+    $("pageTitle").textContent=seating?"관현악부 자리배치":"관현악부 연명부 관리";
+    $("pageSubtitle").textContent=seating?"연명부 데이터를 이용해 무대 배치를 구성합니다.":"분류별 악기와 파트별 단원 정보를 관리합니다.";
+    if(seating){
+      renderSeating();
+      requestAnimationFrame(() => {
+        if(window.innerWidth <= 680 && boardZoom === 1) fitBoardToViewport();
+        else applyBoardZoom();
+      });
+    }
+  });
+
+  function colorFor(instrumentId,name){
+    if(instrumentId && instrumentColors[instrumentId]) return instrumentColors[instrumentId];
+    const colors=["#f0b6b8","#c9b6df","#a9d9ea","#b2e2c1","#f3d999","#f1c5df","#b9d0e3","#d4e9b4","#f4b7a8","#c8d7ae","#d7c4a8","#b7c9e2"];
+    let h=0;for(const c of String(name))h=((h<<5)-h+c.charCodeAt(0))|0;return colors[Math.abs(h)%colors.length];
+  }
+  function defaultPos(i){return{x:22+(i%14)*82,y:20+Math.floor(i/14)*52,rotation:0}}
+  function clamp(v,min,max){return Math.min(Math.max(v,min),max)}
+
+  function applyBoardZoom(anchorClientX=null, anchorClientY=null, previousZoom=boardZoom){
+    const stage=$("boardStage"), viewport=$("seatingViewport");
+    if(!stage||!viewport)return;
+
+    const oldZoom=previousZoom || boardZoom;
+    let boardX=null, boardY=null;
+
+    if(anchorClientX!==null && anchorClientY!==null){
+      const rect=viewport.getBoundingClientRect();
+      boardX=(viewport.scrollLeft + anchorClientX - rect.left)/oldZoom;
+      boardY=(viewport.scrollTop + anchorClientY - rect.top)/oldZoom;
+    }
+
+    stage.style.width=(BOARD_WIDTH*boardZoom)+"px";
+    stage.style.height=(BOARD_HEIGHT*boardZoom)+"px";
+    $("board").style.transform=`scale(${boardZoom})`;
+    $("board").style.transformOrigin="0 0";
+    $("zoomValue").textContent=Math.round(boardZoom*100)+"%";
+
+    if(boardX!==null && boardY!==null){
+      const rect=viewport.getBoundingClientRect();
+      viewport.scrollLeft=boardX*boardZoom-(anchorClientX-rect.left);
+      viewport.scrollTop=boardY*boardZoom-(anchorClientY-rect.top);
+    }
+  }
+
+  function setBoardZoom(nextZoom, clientX=null, clientY=null){
+    const previous=boardZoom;
+    boardZoom=clamp(nextZoom,MIN_ZOOM,MAX_ZOOM);
+    applyBoardZoom(clientX,clientY,previous);
+  }
+
+  function fitBoardToViewport(){
+    const viewport=$("seatingViewport");
+    if(!viewport)return;
+    const fit=Math.min(
+      (viewport.clientWidth-16)/BOARD_WIDTH,
+      (viewport.clientHeight-16)/BOARD_HEIGHT,
+      1
+    );
+    boardZoom=clamp(fit,MIN_ZOOM,1);
+    applyBoardZoom();
+    viewport.scrollLeft=0;
+    viewport.scrollTop=0;
+  }
+
+  $("zoomInBtn").addEventListener("click",()=>{
+    const v=$("seatingViewport"),r=v.getBoundingClientRect();
+    setBoardZoom(boardZoom+0.12,r.left+r.width/2,r.top+r.height/2);
+  });
+  $("zoomOutBtn").addEventListener("click",()=>{
+    const v=$("seatingViewport"),r=v.getBoundingClientRect();
+    setBoardZoom(boardZoom-0.12,r.left+r.width/2,r.top+r.height/2);
+  });
+  $("fitBoardBtn").addEventListener("click",fitBoardToViewport);
+  $("resetViewBtn").addEventListener("click",()=>{
+    boardZoom=1;applyBoardZoom();$("seatingViewport").scrollTo({left:0,top:0,behavior:"smooth"});
+  });
+
+  const seatingViewport=$("seatingViewport");
+
+  seatingViewport.addEventListener("wheel",e=>{
+    if(!e.ctrlKey && !e.metaKey)return;
+    e.preventDefault();
+    setBoardZoom(boardZoom*(e.deltaY<0?1.1:0.9),e.clientX,e.clientY);
+  },{passive:false});
+
+  seatingViewport.addEventListener("pointerdown",e=>{
+    if(e.target.closest(".seat"))return;
+    activeViewPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+
+    if(activeViewPointers.size===1){
+      viewGesture={
+        mode:"pan",
+        pointerId:e.pointerId,
+        startX:e.clientX,
+        startY:e.clientY,
+        scrollLeft:seatingViewport.scrollLeft,
+        scrollTop:seatingViewport.scrollTop
+      };
+      seatingViewport.classList.add("panning");
+    }else if(activeViewPointers.size===2){
+      const points=[...activeViewPointers.values()];
+      viewGesture={
+        mode:"pinch",
+        startDistance:Math.hypot(points[1].x-points[0].x,points[1].y-points[0].y),
+        startZoom:boardZoom
+      };
+    }
+
+    seatingViewport.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+
+  seatingViewport.addEventListener("pointermove",e=>{
+    if(!activeViewPointers.has(e.pointerId))return;
+    activeViewPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+
+    if(activeViewPointers.size===2 && viewGesture){
+      const points=[...activeViewPointers.values()];
+      const distance=Math.hypot(points[1].x-points[0].x,points[1].y-points[0].y);
+      const centerX=(points[0].x+points[1].x)/2;
+      const centerY=(points[0].y+points[1].y)/2;
+      setBoardZoom(viewGesture.startZoom*(distance/viewGesture.startDistance),centerX,centerY);
+      return;
+    }
+
+    if(viewGesture?.mode==="pan" && e.pointerId===viewGesture.pointerId){
+      seatingViewport.scrollLeft=viewGesture.scrollLeft-(e.clientX-viewGesture.startX);
+      seatingViewport.scrollTop=viewGesture.scrollTop-(e.clientY-viewGesture.startY);
+    }
+  });
+
+  function endViewPointer(e){
+    activeViewPointers.delete(e.pointerId);
+    try{
+      if(seatingViewport.hasPointerCapture(e.pointerId)) seatingViewport.releasePointerCapture(e.pointerId);
+    }catch(_){}
+    if(activeViewPointers.size===0){
+      viewGesture=null;
+      seatingViewport.classList.remove("panning");
+    }else if(activeViewPointers.size===1){
+      const [pointerId,point]=[...activeViewPointers.entries()][0];
+      viewGesture={
+        mode:"pan",
+        pointerId,
+        startX:point.x,
+        startY:point.y,
+        scrollLeft:seatingViewport.scrollLeft,
+        scrollTop:seatingViewport.scrollTop
+      };
+    }
+  }
+  seatingViewport.addEventListener("pointerup",endViewPointer);
+  seatingViewport.addEventListener("pointercancel",endViewPointer);
+
+  async function exportSeatingImage(){
+    const button=$("printBtn");
+    if(!window.html2canvas)return toast("이미지 변환 라이브러리를 불러오지 못했습니다.");
+    if(!members.length)return toast("이미지로 저장할 단원이 없습니다.");
+
+    const originalText=button.textContent;
+    let exportSheet=null;
+    button.disabled=true;
+    button.textContent="생성 중...";
+
+    try{
+      exportSheet=document.createElement("section");
+      Object.assign(exportSheet.style,{
+        position:"fixed",
+        left:"-20000px",
+        top:"0",
+        zIndex:"-1",
+        width:(BOARD_WIDTH+48)+"px",
+        padding:"24px",
+        background:"#ffffff",
+        color:"#1f2933",
+        fontFamily:'Pretendard,"Noto Sans KR",Arial,sans-serif'
+      });
+
+      const exportHeader=document.createElement("div");
+      Object.assign(exportHeader.style,{
+        display:"flex",
+        justifyContent:"space-between",
+        alignItems:"flex-end",
+        gap:"20px",
+        marginBottom:"16px"
+      });
+      exportHeader.innerHTML=`
+        <div>
+          <div style="font-size:28px;font-weight:900;letter-spacing:-.02em">관현악부 자리배치표</div>
+          <div style="margin-top:6px;color:#718096;font-size:13px">전체 무대 배치</div>
+        </div>
+        <div style="color:#536670;font-size:13px;font-weight:800">단원 ${members.length}명 · 악기 ${new Set(members.map(x=>x.instrumentId).filter(Boolean)).size}종</div>
+      `;
+
+      const boardClone=$("board").cloneNode(true);
+      boardClone.removeAttribute("id");
+      boardClone.style.transform="none";
+      boardClone.style.transformOrigin="0 0";
+      boardClone.style.width=BOARD_WIDTH+"px";
+      boardClone.style.height=BOARD_HEIGHT+"px";
+      boardClone.querySelectorAll(".rotate").forEach(x=>x.remove());
+      boardClone.querySelectorAll("[id]").forEach(x=>x.removeAttribute("id"));
+
+      const legendClone=$("legend").cloneNode(true);
+      legendClone.removeAttribute("id");
+      legendClone.style.marginTop="16px";
+      legendClone.querySelectorAll("input").forEach(x=>x.remove());
+      legendClone.querySelectorAll(".legend-item").forEach(x=>{
+        x.style.cursor="default";
+        x.style.transform="none";
+      });
+
+      exportSheet.append(exportHeader,boardClone,legendClone);
+      document.body.appendChild(exportSheet);
+
+      if(document.fonts?.ready)await document.fonts.ready;
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+
+      const canvas=await html2canvas(exportSheet,{
+        scale:2,
+        backgroundColor:"#ffffff",
+        useCORS:true,
+        logging:false,
+        width:exportSheet.scrollWidth,
+        height:exportSheet.scrollHeight,
+        windowWidth:exportSheet.scrollWidth,
+        windowHeight:exportSheet.scrollHeight
+      });
+
+      const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/png",1));
+      if(!blob)throw new Error("PNG 파일을 생성하지 못했습니다.");
+
+      const now=new Date();
+      const date=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+      const filename=`관현악부_자리배치표_${date}.png`;
+      const file=new File([blob],filename,{type:"image/png"});
+
+      if(navigator.share && navigator.canShare?.({files:[file]})){
+        await navigator.share({
+          title:"관현악부 자리배치표",
+          text:"관현악부 자리배치표 이미지입니다.",
+          files:[file]
+        });
+        toast("자리배치표 공유 창을 열었습니다.");
+      }else{
+        const url=URL.createObjectURL(blob);
+        const link=document.createElement("a");
+        link.href=url;
+        link.download=filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(()=>URL.revokeObjectURL(url),1000);
+        toast("자리배치표 이미지를 저장했습니다.");
+      }
+    }catch(err){
+      if(err?.name==="AbortError")toast("공유를 취소했습니다.");
+      else{
+        console.error(err);
+        toast("이미지 생성 실패: "+(err?.message||"알 수 없는 오류"));
+      }
+    }finally{
+      exportSheet?.remove();
+      button.disabled=false;
+      button.textContent=originalText;
+    }
+  }
+
+  $("printBtn").addEventListener("click",exportSeatingImage);
+
+  function renderSeating(){
+    const board=$("board");board.querySelectorAll(".seat").forEach(x=>x.remove());
+    const usedInstrumentIds=[...new Set(members.map(x=>x.instrumentId).filter(Boolean))];
+    const usedInstruments=usedInstrumentIds.map(id=>{
+      const inst=instruments.find(x=>x.id===id);
+      const member=members.find(x=>x.instrumentId===id);
+      return {id,name:inst?.name||member?.instrumentName||"악기"};
+    }).sort((a,b)=>a.name.localeCompare(b.name,"ko"));
+    $("memberCount").textContent=`단원 ${members.length}명`;$("instrumentCount").textContent=`악기 ${usedInstruments.length}종`;
+    $("seatEmpty").style.display=members.length?"none":"block";
+    $("legend").innerHTML=usedInstruments.map(inst=>`<label class="legend-item" title="${escapeHtml(inst.name)} 색상 변경"><span class="swatch" style="background:${colorFor(inst.id,inst.name)}"></span><span class="legend-name">${escapeHtml(inst.name)}</span><input class="legend-color-input" type="color" value="${colorFor(inst.id,inst.name)}" data-instrument-id="${inst.id}" data-instrument-name="${escapeHtml(inst.name)}" aria-label="${escapeHtml(inst.name)} 색상 선택"></label>`).join("");
+    members.forEach((m,i)=>{
+      const p=positions[m.id]||defaultPos(i),card=document.createElement("div");
+      card.className="seat";card.dataset.id=m.id;card.dataset.rotation=String(p.rotation||0);
+      card.style.left=clamp(Number(p.x)||0,0,1130)+"px";card.style.top=clamp(Number(p.y)||0,0,720)+"px";card.style.background=colorFor(m.instrumentId,m.instrumentName);card.style.transform=`rotate(${Number(p.rotation)||0}deg)`;
+      card.innerHTML=`<button class="rotate">↻</button><div class="inst">${escapeHtml(m.instrumentName||"악기")}</div><div class="person">${escapeHtml(m.name)}</div><div class="part-name">${escapeHtml(m.part||"")}</div>`;
+      card.addEventListener("pointerdown",beginMove);card.querySelector(".rotate").addEventListener("pointerdown",beginRotate);board.appendChild(card);
+    });
+    applyBoardZoom();
+  }
+
+  $("legend").addEventListener("input",e=>{
+    const input=e.target.closest(".legend-color-input");
+    if(!input)return;
+    const instrumentId=input.dataset.instrumentId;
+    const color=input.value;
+    instrumentColors[instrumentId]=color;
+
+    const swatch=input.closest(".legend-item")?.querySelector(".swatch");
+    if(swatch) swatch.style.background=color;
+
+    members.filter(m=>m.instrumentId===instrumentId).forEach(m=>{
+      const seat=$("board").querySelector(`.seat[data-id="${CSS.escape(m.id)}"]`);
+      if(seat) seat.style.background=color;
+    });
+  });
+
+  $("legend").addEventListener("change",async e=>{
+    const input=e.target.closest(".legend-color-input");
+    if(!input)return;
+    const instrumentId=input.dataset.instrumentId;
+    const color=input.value;
+    instrumentColors[instrumentId]=color;
+    try{
+      await db.collection("seating_instrument_colors").doc(instrumentId).set({
+        instrumentId,
+        instrumentName:input.dataset.instrumentName||"",
+        color,
+        updatedAt:serverTime()
+      },{merge:true});
+      toast("악기 색상을 저장했습니다.");
+    }catch(err){
+      console.error(err);
+      toast("색상 저장 실패: "+(err.code||err.message));
+    }
+  });
+
+  function beginMove(e){
+    if(e.target.closest(".rotate")||drag)return;
+    const card=e.currentTarget,br=$("board").getBoundingClientRect();
+    const pointerBoardX=(e.clientX-br.left)/boardZoom;
+    const pointerBoardY=(e.clientY-br.top)/boardZoom;
+    drag={
+      mode:"move",
+      card,
+      id:card.dataset.id,
+      pointerId:e.pointerId,
+      offsetX:pointerBoardX-(parseFloat(card.style.left)||0),
+      offsetY:pointerBoardY-(parseFloat(card.style.top)||0)
+    };
+    card.classList.add("dragging");card.setPointerCapture(e.pointerId);card.addEventListener("pointermove",moveCard);card.addEventListener("pointerup",finishDrag);card.addEventListener("pointercancel",finishDrag);e.preventDefault();
+  }
+  function moveCard(e){
+    if(!drag||drag.mode!=="move"||e.pointerId!==drag.pointerId)return;
+    const br=$("board").getBoundingClientRect();
+    const pointerBoardX=(e.clientX-br.left)/boardZoom;
+    const pointerBoardY=(e.clientY-br.top)/boardZoom;
+    drag.card.style.left=clamp(pointerBoardX-drag.offsetX,0,BOARD_WIDTH-drag.card.offsetWidth)+"px";
+    drag.card.style.top=clamp(pointerBoardY-drag.offsetY,0,BOARD_HEIGHT-drag.card.offsetHeight)+"px";
+  }
+  function beginRotate(e){
+    e.stopPropagation();e.preventDefault();if(drag)return;
+    const handle=e.currentTarget,card=handle.closest(".seat"),rect=card.getBoundingClientRect();
+    const cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;
+    drag={mode:"rotate",card,handle,id:card.dataset.id,pointerId:e.pointerId,start:Number(card.dataset.rotation||0),angle:Math.atan2(e.clientY-cy,e.clientX-cx)*180/Math.PI};
+    card.classList.add("dragging");handle.setPointerCapture(e.pointerId);handle.addEventListener("pointermove",rotateCard);handle.addEventListener("pointerup",finishDrag);handle.addEventListener("pointercancel",finishDrag);
+  }
+  function rotateCard(e){
+    if(!drag||drag.mode!=="rotate"||e.pointerId!==drag.pointerId)return;
+    const r=drag.card.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+    let angle=Math.atan2(e.clientY-cy,e.clientX-cx)*180/Math.PI-drag.angle;let next=(drag.start+angle)%360;if(next<0)next+=360;
+    drag.card.dataset.rotation=String(next);drag.card.style.transform=`rotate(${next}deg)`;
+  }
+  async function finishDrag(e){
+    if(!drag||e.pointerId!==drag.pointerId)return;
+    const d=drag;drag=null;d.card.classList.remove("dragging");
+    d.card.removeEventListener("pointermove",moveCard);d.card.removeEventListener("pointerup",finishDrag);d.card.removeEventListener("pointercancel",finishDrag);
+    if(d.handle){d.handle.removeEventListener("pointermove",rotateCard);d.handle.removeEventListener("pointerup",finishDrag);d.handle.removeEventListener("pointercancel",finishDrag)}
+    const data={memberId:d.id,x:Math.round(parseFloat(d.card.style.left)||0),y:Math.round(parseFloat(d.card.style.top)||0),rotation:Math.round(Number(d.card.dataset.rotation||0)*100)/100,updatedAt:serverTime()};
+    positions[d.id]=data;
+    try{await db.collection("seating_positions").doc(d.id).set(data,{merge:true});}catch(err){console.error(err);toast("자리 저장 실패");}
+  }
+
+  $("templateBtn").onclick=()=>{
+    if(!window.XLSX)return toast("엑셀 라이브러리를 불러오지 못했습니다.");
+    const ws=XLSX.utils.json_to_sheet([{"분류":"현악기","악기":"바이올린","파트":"1st","이름":"홍길동","비고":"악장"},{"분류":"목관","악기":"플루트","파트":"Flute 1","이름":"김영희","비고":""}]);
+    ws["!cols"]=[{wch:12},{wch:16},{wch:16},{wch:14},{wch:24}];
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"연명부");XLSX.writeFile(wb,"관현악부_연명부_양식.xlsx");
+  };
+  $("importBtn").onclick=()=>{$("excelInput").value="";$("excelInput").click()};
+  $("excelInput").onchange=async e=>{
+    const file=e.target.files?.[0];if(!file)return;
+    try{
+      showNotice("엑셀 파일을 읽는 중입니다.");
+      const wb=XLSX.read(await file.arrayBuffer(),{type:"array"}),ws=wb.Sheets[wb.SheetNames[0]];
+      const raw=XLSX.utils.sheet_to_json(ws,{defval:"",raw:false});
+      const rows=raw.map((r,i)=>({row:i+2,category:String(r["분류"]??r["카테고리"]??"").trim(),instrument:String(r["악기"]??r["악기명"]??"").trim(),part:String(r["파트"]??"").trim(),name:String(r["이름"]??r["성명"]??"").trim(),note:String(r["비고"]??r["메모"]??"").trim()})).filter(r=>r.category||r.instrument||r.part||r.name||r.note);
+      const errors=[];rows.forEach(r=>{if(!r.category||!r.instrument||!r.part||!r.name)errors.push(`${r.row}행 필수값 누락`);else if(!CATEGORIES.includes(r.category))errors.push(`${r.row}행 잘못된 분류`)});
+      if(errors.length)throw new Error(errors.slice(0,5).join(" / "));
+      if(!rows.length)throw new Error("등록할 데이터가 없습니다.");
+      if(!confirm(`${rows.length}명의 데이터를 등록하시겠습니까?`)){hideNotice();return}
+      await importRows(rows);
+    }catch(err){console.error(err);showNotice("엑셀 업로드 실패: "+err.message,true);toast("엑셀 업로드에 실패했습니다.");}
+    finally{e.target.value=""}
+  };
+
+  async function importRows(rows){
+    const categorySet=new Set(categories.map(x=>x.name));
+    const instMap=new Map(instruments.map(x=>[(x.category+"::"+x.name).toLowerCase(),x]));
+    const memberSet=new Set(members.map(x=>(x.instrumentId+"::"+x.part+"::"+x.name).toLowerCase()));
+    let added=0,skipped=0;
+    for(let i=0;i<rows.length;i++){
+      const r=rows[i];showNotice(`${rows.length}행 중 ${i+1}행 처리 중 · 등록 ${added}명 · 중복 ${skipped}명`);
+      if(!categorySet.has(r.category)){await db.collection("roster_categories").add({name:r.category,order:CATEGORIES.indexOf(r.category),createdAt:serverTime()});categorySet.add(r.category)}
+      const ik=(r.category+"::"+r.instrument).toLowerCase();let inst=instMap.get(ik);
+      if(!inst){const ref=await db.collection("roster_instruments").add({category:r.category,name:r.instrument,createdAt:serverTime()});inst={id:ref.id,category:r.category,name:r.instrument};instMap.set(ik,inst)}
+      const mk=(inst.id+"::"+r.part+"::"+r.name).toLowerCase();if(memberSet.has(mk)){skipped++;continue}
+      await db.collection("roster_members").add({category:r.category,instrumentId:inst.id,instrumentName:r.instrument,part:r.part,name:r.name,note:r.note,createdAt:serverTime(),updatedAt:serverTime()});
+      memberSet.add(mk);added++;
+    }
+    showNotice(`업로드 완료 · ${added}명 등록 · ${skipped}명 중복 제외`);toast(`${added}명을 등록했습니다.`);
+  }
+})();
+</script>
+</body>
+</html>
